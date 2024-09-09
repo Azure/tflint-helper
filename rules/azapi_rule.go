@@ -102,11 +102,11 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 	for _, resource := range resources {
 		typeAttr, typeAttrExists := resource.Body.Attributes["type"]
 		if !typeAttrExists {
-			runner.EmitIssue(
+			runner.EmitIssue( // nolint: errcheck
 				r,
 				"Resource does not have a `type` attribute",
 				resource.DefRange,
-			) // nolint: errcheck
+			)
 			continue
 		}
 		typeVal, diags := ctx.EvaluateExpr(typeAttr.Expr, cty.String)
@@ -119,11 +119,11 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 		}
 		bodyAttr, bodyAttrExists := resource.Body.Attributes["body"]
 		if !bodyAttrExists {
-			runner.EmitIssue(
+			runner.EmitIssue( // nolint: errcheck
 				r,
 				"Resource does not have a `body` attribute",
 				resource.DefRange,
-			) // nolint: errcheck
+			)
 			continue
 		}
 
@@ -140,11 +140,11 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 			return fmt.Errorf("could not compare values: %w", err)
 		}
 		if !ok {
-			runner.EmitIssue(
+			runner.EmitIssue( // nolint: errcheck
 				r,
 				msg,
 				bodyAttr.Range,
-			) // nolint: errcheck
+			)
 		}
 	}
 	return nil
