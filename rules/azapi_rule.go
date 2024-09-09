@@ -106,7 +106,7 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 				r,
 				"Resource does not have a `type` attribute",
 				resource.DefRange,
-			)
+			) // nolint: errcheck
 			continue
 		}
 		typeVal, diags := ctx.EvaluateExpr(typeAttr.Expr, cty.String)
@@ -123,7 +123,7 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 				r,
 				"Resource does not have a `body` attribute",
 				resource.DefRange,
-			)
+			) // nolint: errcheck
 			continue
 		}
 
@@ -144,7 +144,7 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 				r,
 				msg,
 				bodyAttr.Range,
-			)
+			) // nolint: errcheck
 		}
 	}
 	return nil

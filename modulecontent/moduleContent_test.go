@@ -42,7 +42,7 @@ resource "azapi_resource" "test" {
 	}
 	require.Len(t, blocks, 1)
 	assert.Equal(t, "azapi_resource", blocks[0].Labels[0])
-	ctx.EvaluateExpr(blocks[0].Body.Attributes["type"].Expr, cty.String)
+	ctx.EvaluateExpr(blocks[0].Body.Attributes["type"].Expr, cty.String) // nolint: errcheck
 	val, diags := blocks[0].Body.Attributes["type"].Expr.Value(nil)
 	assert.False(t, diags.HasErrors())
 	assert.Equal(t, "testType@0000-00-00", val.AsString())
