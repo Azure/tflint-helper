@@ -272,7 +272,7 @@ body = {
 		},
 		{
 			name: "no azapi_resources - no error expected",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 		resource "not_azapi_resource" "test" {
 			biz = "baz"
@@ -282,7 +282,7 @@ body = {
 		},
 		{
 			name: "no type attribute",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 		resource "azapi_resource" "test" {
 			not_type = "baz"
@@ -290,14 +290,14 @@ body = {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 					Message: "Resource does not have a `type` attribute",
 				},
 			},
 		},
 		{
 			name: "no body attribute",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 resource "azapi_resource" "test" {
 	type     = "testType@0000-00-00"
@@ -305,7 +305,7 @@ resource "azapi_resource" "test" {
 }`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 					Message: "Resource does not have a `body` attribute",
 				},
 			},
@@ -331,7 +331,7 @@ resource "azapi_resource" "test" {
 		},
 		{
 			name: "unknown value",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "key", blockquery.Exists),
+			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "key", blockquery.IsNotNull),
 			content: `
 variable "unknown" {
   type = string

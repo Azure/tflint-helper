@@ -5,75 +5,36 @@ package blockquery
 
 import (
 	"fmt"
-	"reflect"
 
-	"github.com/tidwall/gjson"
+	"github.com/zclconf/go-cty/cty"
 )
 
-type ResultCompareFunc func(gjson.Result, ...gjson.Result) (bool, string, error)
+type ResultCompareFunc func(cty.Value, ...cty.Value) (bool, string, error)
 
-// Exists is a compare function that checks if the result exists.
-func Exists(got gjson.Result, _ ...gjson.Result) (bool, string, error) {
-	if !got.Exists() {
-		return false, "returned value does not exist but expected", nil
+// IsNotNull is a compare function that checks if the result exists.
+func IsNotNull(got cty.Value, _ ...cty.Value) (bool, string, error) {
+	if got.IsNull() {
+		return false, "returned value is null but not expected to be", nil
 	}
 	return true, "", nil
 }
 
-// NotExists is a compare function that checks if the result does not exist.
-func NotExists(got gjson.Result, _ ...gjson.Result) (bool, string, error) {
-	if got.Exists() {
-		return false, "returned value exists but not expected", nil
+// IsNull is a compare function that checks if the result does not exist.
+func IsNull(got cty.Value, _ ...cty.Value) (bool, string, error) {
+	if !got.IsNull() {
+		return false, "returned value is not null but expected to be", nil
 	}
 	return true, "", nil
-}
-
-// EachIsOneOfAndMustExist is a compare function that checks if the result is one of the expected values and must exist.
-// This is useful when the result is an array and you want to check if each element is one of the expected values.
-func EachIsOneOfAndMustExist(got gjson.Result, expected ...gjson.Result) (bool, string, error) {
-	if !got.Exists() {
-		return false, "returned value does not exist but expected", nil
-	}
-	return EachIsOneOf(got, expected...)
 }
 
 // EachIsOneOf is a compare function that checks if the result is one of the expected values.
 // This is useful when the result is an array and you want to check if each element is one of the expected values.
-func EachIsOneOf(got gjson.Result, expected ...gjson.Result) (bool, string, error) {
-	if !got.Exists() {
-		return true, "", nil
-	}
-	if len(got.Array()) == 1 {
-		var message string
-		ok := compareResults(got, expected)
-		if !ok {
-			message = fmt.Sprintf("returned value `%s` not in expected values `%s`", got, expected)
-		}
-		return ok, message, nil
-	}
-	results := make([]bool, len(got.Array()))
-	for i, qr := range got.Array() {
-		results[i] = compareResults(qr, expected)
-	}
-	if !allTrue(results...) {
-		return false, fmt.Sprintf("returned value `%s` not in expected values `%v`", got, expected), nil
-	}
-	return true, "", nil
-}
-
-// IsOneOfAndMustExist is a compare function that checks if the result is one of the expected values and must exist.
-func IsOneOfAndMustExist(got gjson.Result, expected ...gjson.Result) (bool, string, error) {
-	if !got.Exists() {
-		return false, "returned value does not exist but expected", nil
-	}
-	return IsOneOf(got, expected...)
+func EachIsOneOf(got cty.Value, expected ...cty.Value) (bool, string, error) {
+	// go through them all and check if they are one of the expected values
 }
 
 // IsOneOf is a compare function that checks if the result is one of the expected values.
-func IsOneOf(got gjson.Result, expected ...gjson.Result) (bool, string, error) {
-	if !got.Exists() {
-		return true, "", nil
-	}
+func IsOneOf(got cty.Value, expected ...cty.Value) (bool, string, error) {
 	ok := compareResults(got, expected)
 	if !ok {
 		return false, fmt.Sprintf("returned value `%s` not in expected values `%v`", got, expected), nil
@@ -82,9 +43,9 @@ func IsOneOf(got gjson.Result, expected ...gjson.Result) (bool, string, error) {
 }
 
 // compareResults compares the result with the expected values.
-func compareResults(got gjson.Result, want []gjson.Result) bool {
+func compareResults(got cty.Value, want []cty.Value) bool {
 	for _, w := range want {
-		ok := reflect.DeepEqual(got.Value(), w.Value())
+		ok := w.Equals(got).True()
 		if ok {
 			return true
 		}

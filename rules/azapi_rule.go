@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/tflint-helper/blockquery"
 	"github.com/Azure/tflint-helper/modulecontent"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
-	"github.com/tidwall/gjson"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -18,7 +17,7 @@ import (
 type AzApiRule struct {
 	tflint.DefaultRule // Embed the default rule to reuse its implementation
 	blockquery.BlockQuery
-	expected          []gjson.Result
+	expected          []cty.Value
 	maximumApiVersion string
 	minimumApiVersion string
 	link              string
@@ -38,7 +37,7 @@ var _ modulecontent.BlockFetcher = &AzApiRule{}
 func NewAzApiRule(
 	ruleName, link, resourceType, minimumApiVersion, maximumApiVersion, query string,
 	compareFunc blockquery.ResultCompareFunc,
-	expectedResults ...gjson.Result,
+	expectedResults ...cty.Value,
 ) *AzApiRule {
 	return &AzApiRule{
 		BlockQuery: blockquery.NewBlockQuery(
@@ -130,7 +129,7 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 		if diags.HasErrors() {
 			return fmt.Errorf("could not evaluate body expression: %s", diags)
 		}
-		qr, err := blockquery.Query(val, ct, r.Query)
+		qr, err := blockquery.QueryCty(val, r.Query)
 		if err != nil {
 			return fmt.Errorf("could not query value: %s", err)
 		}
