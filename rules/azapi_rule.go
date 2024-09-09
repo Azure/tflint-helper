@@ -126,7 +126,6 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 			)
 			continue
 		}
-
 		val, diags := ctx.EvaluateExpr(bodyAttr.Expr, ct)
 		if diags.HasErrors() {
 			return fmt.Errorf("could not evaluate body expression: %s", diags)

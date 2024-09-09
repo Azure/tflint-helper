@@ -329,6 +329,22 @@ resource "azapi_resource" "test" {
 }`,
 			expected: helper.Issues{},
 		},
+		{
+			name: "unknown value",
+			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "key", blockquery.Exists),
+			content: `
+variable "unknown" {
+  type = string
+}
+
+resource "azapi_resource" "test" {
+	type     = "testType@0000-00-00"
+	body = {
+		key = var.unknown
+	}
+}`,
+			expected: helper.Issues{},
+		},
 	}
 
 	filename := "main.tf"
