@@ -1,33 +1,41 @@
-# Project
+# tflint-helper
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+A go project containing convenience functions for writing tflint rules.
 
-As the maintainer of this project, please make a few updates:
+## modulecontent
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+The modulecontent package contains functions for extracting information from Terraform modules.
+It supports evaluation of all expressions and can be used to extract blocks and attributes according to the supplied inputs.
 
-## Contributing
+The blocks and attributes provided by this package can be evaluated using the supplied `*terraform.Evaluator` `EvaluateExpr()`.
+Use the `FetchBlocks()` and `FetchAttributes()` functions to extract the blocks and attributes from the module.
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+You can use the resulting `cty.Value` in the `blockquery` package.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+## blockquery
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+This package uses [gjson](https://github.com/tidwall/gjson) to query the `cty.Value` returned by the `modulecontent` package.
 
-## Trademarks
+Use the `Query()` function to return a `gjson.Result`.
+You can then use one of the comparison functions , e.g. `IsOneOf()` to check the result against a set of expected values.
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+## rules
+
+These contain template rules for common use cases.
+
+### AzAPI Rule
+
+Use `NewAzApiRule()` to create a rule that checks for specific body properties for a given resource type and API version:
+
+```go
+NewAzApiRule(
+  "ruleName",                                // The rule name
+  "https://link-to-rule-docs.com",           // The link to the rule documentation
+  "Microsoft.Network/publicIPAddresses",     // The resource type
+  "2023-05-01",                              // Minimum API version applicable
+  "",                                        // No maximum API version applicable (use latest)
+  "properties.sku.name",                     // The gJSON query
+  blockquery.IsOneOf,                        // The comparison function
+  blockquery.NewStringResults("Standard")... // The expected values
+)
+```
