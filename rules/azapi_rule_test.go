@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/terraform-linters/tflint-plugin-sdk/helper"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestAzapiRule(t *testing.T) {
@@ -24,7 +25,7 @@ func TestAzapiRule(t *testing.T) {
 	}{
 		{
 			name: "correct string",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("fiz")...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("fiz")...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -37,7 +38,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "correct string with multiple values",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("fuz", "fiz")...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("fuz", "fiz")...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -50,7 +51,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "incorrect string",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("not_fiz")...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("not_fiz")...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -61,14 +62,14 @@ func TestAzapiRule(t *testing.T) {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("not_fiz")...),
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewStringResults("not_fiz")...),
 					Message: "returned value `fiz` not in expected values `[not_fiz]`",
 				},
 			},
 		},
 		{
 			name: "string not present but doesn't need to exist",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "bat", blockquery.IsOneOf, blockquery.NewStringResults()...),
+			rule: NewAzApiRuleQueryOptionalExist("test", "https://example.com", "testType", "", "", "bat", blockquery.IsOneOf, blockquery.NewStringResults()...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -81,7 +82,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "string present but not expected",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.NotExists),
+			rule: NewAzApiRuleQueryOptionalExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsNull),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -92,14 +93,27 @@ func TestAzapiRule(t *testing.T) {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewStringResults()...),
-					Message: "returned value exists but not expected",
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewStringResults()...),
+					Message: "returned value is not null but expected to be",
 				},
 			},
 		},
 		{
+			name: "string not present but not expected",
+			rule: NewAzApiRuleQueryOptionalExist("test", "https://example.com", "testType", "", "", "notExist", blockquery.IsNull),
+			content: `
+		resource "azapi_resource" "test" {
+		  type = "testType@0000-00-00"
+		  body = {
+			  foo = "fiz"
+				bar = "biz"
+			}
+		}`,
+			expected: helper.Issues{},
+		},
+		{
 			name: "correct number",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewNumberResults(2)...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewIntResults(2)...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -112,7 +126,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "incorrect number",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewNumberResults(0)...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewIntResults(0)...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -123,14 +137,14 @@ func TestAzapiRule(t *testing.T) {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewNumberResults(0)...),
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewIntResults(0)...),
 					Message: "returned value `2` not in expected values `[0]`",
 				},
 			},
 		},
 		{
 			name: "correct bool",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewTrueResult()),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewBoolResult(true)),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -143,7 +157,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "incorrect bool",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewTrueResult()),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewBoolResult(true)),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -154,14 +168,14 @@ func TestAzapiRule(t *testing.T) {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewTrueResult()),
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewBoolResult(true)),
 					Message: "returned value `false` not in expected values `[true]`",
 				},
 			},
 		},
 		{
 			name: "correct list",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewComplexResults([]any{1, 2, 3})...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(1), cty.NumberIntVal(2), cty.NumberIntVal(3)})...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -174,7 +188,7 @@ func TestAzapiRule(t *testing.T) {
 		},
 		{
 			name: "incorrect list",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewComplexResults([]any{4, 5, 6})...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.IsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(4), cty.NumberIntVal(5), cty.NumberIntVal(6)})...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -185,14 +199,14 @@ func TestAzapiRule(t *testing.T) {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewComplexResults([]any{4, 5, 6})...),
-					Message: "returned value `[1,2,3]` not in expected values `[[4,5,6]]`",
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo", blockquery.EachIsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(4), cty.NumberIntVal(5), cty.NumberIntVal(6)})...),
+					Message: "returned value `[1 2 3]` not in expected values `[[4 5 6]]`",
 				},
 			},
 		},
 		{
 			name: "nested list",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewComplexResults([]any{1, 2, 3})...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(1), cty.NumberIntVal(2), cty.NumberIntVal(3)})...),
 			content: `
 resource "azapi_resource" "test" {
 	type = "testType@0000-00-00"
@@ -214,7 +228,7 @@ resource "azapi_resource" "test" {
 		},
 		{
 			name: "nested list incorrect",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewComplexResults([]any{1, 2, 3})...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(1), cty.NumberIntVal(2), cty.NumberIntVal(3)})...),
 			content: `
 resource "azapi_resource" "test" {
 type = "testType@0000-00-00"
@@ -234,14 +248,14 @@ body = {
 }`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewComplexResults([]any{1, 2, 3})...),
-					Message: "returned value `[[1,2,3],[4,5,6],[1,2,3]]` not in expected values `[[1,2,3]]`",
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "foo.#.bar", blockquery.EachIsOneOf, blockquery.NewListResults([]cty.Value{cty.NumberIntVal(1), cty.NumberIntVal(2), cty.NumberIntVal(3)})...),
+					Message: "returned values `[[1 2 3] [4 5 6] [1 2 3]]` not in expected values `[[1 2 3]]`",
 				},
 			},
 		},
 		{
 			name: "query return no results but does not need to exist",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOf, blockquery.NewStringResults("fiz")...),
+			rule: NewAzApiRuleQueryOptionalExist("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOf, blockquery.NewStringResults("fiz")...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -254,7 +268,7 @@ body = {
 		},
 		{
 			name: "query return no results and need to exist",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOfAndMustExist, blockquery.NewStringResults("fiz")...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOf, blockquery.NewStringResults("fiz")...),
 			content: `
 		resource "azapi_resource" "test" {
 		  type = "testType@0000-00-00"
@@ -265,14 +279,14 @@ body = {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOfAndMustExist, blockquery.NewStringResults("fiz")...),
-					Message: "returned value does not exist but expected",
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "notexist", blockquery.EachIsOneOf, blockquery.NewStringResults("fiz")...),
+					Message: "attribute not found: notexist",
 				},
 			},
 		},
 		{
 			name: "no azapi_resources - no error expected",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 		resource "not_azapi_resource" "test" {
 			biz = "baz"
@@ -282,7 +296,7 @@ body = {
 		},
 		{
 			name: "no type attribute",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 		resource "azapi_resource" "test" {
 			not_type = "baz"
@@ -290,14 +304,14 @@ body = {
 		}`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 					Message: "Resource does not have a `type` attribute",
 				},
 			},
 		},
 		{
 			name: "no body attribute",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 			content: `
 resource "azapi_resource" "test" {
 	type     = "testType@0000-00-00"
@@ -305,14 +319,14 @@ resource "azapi_resource" "test" {
 }`,
 			expected: helper.Issues{
 				{
-					Rule:    NewAzApiRule("test", "https://example.com", "testType", "", "", "query", blockquery.Exists),
+					Rule:    NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "query", blockquery.IsNotNull),
 					Message: "Resource does not have a `body` attribute",
 				},
 			},
 		},
 		{
 			name: "object array query",
-			rule: NewAzApiRule("test", "https://example.com", "testType", "", "", "objectarray.#.attr", blockquery.EachIsOneOf, blockquery.NewStringResults("val")...),
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "objectarray.#.attr", blockquery.EachIsOneOf, blockquery.NewStringResults("val")...),
 			content: `
 resource "azapi_resource" "test" {
 	type     = "testType@0000-00-00"
@@ -325,6 +339,22 @@ resource "azapi_resource" "test" {
 				attr = "val"
 			}
 		]
+	}
+}`,
+			expected: helper.Issues{},
+		},
+		{
+			name: "unknown value",
+			rule: NewAzApiRuleQueryMustExist("test", "https://example.com", "testType", "", "", "key", blockquery.IsNotKnown),
+			content: `
+variable "unknown" {
+  type = string
+}
+
+resource "azapi_resource" "test" {
+	type     = "testType@0000-00-00"
+	body = {
+		key = var.unknown
 	}
 }`,
 			expected: helper.Issues{},
