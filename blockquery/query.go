@@ -13,6 +13,22 @@ import (
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
+type QueryErrorNotFound struct {
+	Query string
+}
+
+func (e *QueryErrorNotFound) Error() string {
+	return fmt.Sprintf("attribute not found: %s", e.Query)
+}
+
+func (e *QueryErrorNotFound) Err() error {
+	return fmt.Errorf("%w", e)
+}
+
+func NewQueryErrorNotFound(query string) *QueryErrorNotFound {
+	return &QueryErrorNotFound{Query: query}
+}
+
 // Query takes a cty value and a gjson query string and returns the result.
 // The cty.Value is marshalled to JSON and the query is run against the resulting JSON.
 func Query(val cty.Value, ty cty.Type, query string) (gjson.Result, error) {
@@ -38,7 +54,7 @@ func QueryCty(val cty.Value, query string) (cty.Value, error) {
 	}
 	attrs := val.Type().AttributeTypes()
 	if _, ok := attrs[segment]; !ok {
-		return cty.NilVal, fmt.Errorf("attribute %s not found in value", query)
+		return cty.NilVal, NewQueryErrorNotFound(query)
 	}
 	if remaining == "" {
 		return val.GetAttr(segment), nil
@@ -48,7 +64,7 @@ func QueryCty(val cty.Value, query string) (cty.Value, error) {
 
 // queryList is a supporting function of QueryCty that handles list operations.
 func queryList(val cty.Value, i int, segment, remaining string) (cty.Value, error) {
-	if !val.Type().IsListType() {
+	if !val.Type().IsListType() && !val.Type().IsTupleType() {
 		return cty.NilVal, fmt.Errorf("query segment %s is a list operation but value is not a list", segment)
 	}
 	// -1 means the query used the hash wildcard

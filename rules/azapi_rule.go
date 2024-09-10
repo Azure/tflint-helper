@@ -4,6 +4,7 @@
 package rules
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,6 +24,7 @@ type AzApiRule struct {
 	link              string
 	resourceType      string
 	ruleName          string
+	mustExist         bool
 }
 
 var _ tflint.Rule = &AzApiRule{}
@@ -34,7 +36,7 @@ var _ modulecontent.BlockFetcher = &AzApiRule{}
 // The `expectedResults` parameter is a list of expected results, use the `blockquery.New*Results` functions to create them.
 // The resource type is the first part of the `type` attribute of the resource, e.g. "Microsoft.Compute/virtualMachines" for VMs.
 // Use the `minimumApiVersion` and `maximumApiVersion` parameters to filter resources based on their API version.
-func NewAzApiRule(
+func NewAzApiRuleQueryMustExist(
 	ruleName, link, resourceType, minimumApiVersion, maximumApiVersion, query string,
 	compareFunc blockquery.ResultCompareFunc,
 	expectedResults ...cty.Value,
@@ -54,6 +56,31 @@ func NewAzApiRule(
 		minimumApiVersion: minimumApiVersion,
 		resourceType:      resourceType,
 		ruleName:          ruleName,
+		mustExist:         true,
+	}
+}
+
+func NewAzApiRuleQueryOptionalExist(
+	ruleName, link, resourceType, minimumApiVersion, maximumApiVersion, query string,
+	compareFunc blockquery.ResultCompareFunc,
+	expectedResults ...cty.Value,
+) *AzApiRule {
+	return &AzApiRule{
+		BlockQuery: blockquery.NewBlockQuery(
+			"resource",
+			"azapi_resource",
+			[]string{"type", "name"},
+			"body",
+			query,
+			compareFunc,
+		),
+		expected:          expectedResults,
+		link:              link,
+		maximumApiVersion: maximumApiVersion,
+		minimumApiVersion: minimumApiVersion,
+		resourceType:      resourceType,
+		ruleName:          ruleName,
+		mustExist:         false,
 	}
 }
 
@@ -131,7 +158,18 @@ func (r *AzApiRule) queryResource(runner tflint.Runner, ct cty.Type) error {
 		}
 		qr, err := blockquery.QueryCty(val, r.Query)
 		if err != nil {
-			return fmt.Errorf("could not query value: %s", err)
+			notExistsErr := &blockquery.QueryErrorNotFound{Query: r.Query}
+			if errors.As(err, &notExistsErr) {
+				if r.mustExist {
+					runner.EmitIssue( // nolint: errcheck
+						r,
+						err.Error(),
+						bodyAttr.Range,
+					)
+				}
+				continue
+			}
+			return fmt.Errorf("could not query value: %w", err)
 		}
 		ok, msg, err := r.CompareFunc(qr, r.expected...)
 		if err != nil {
