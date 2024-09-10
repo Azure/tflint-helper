@@ -124,5 +124,5 @@ func fmtCty(in cty.Value) string {
 		}
 		return fmt.Sprintf("%s", res)
 	}
-	return fmt.Sprintf("%s", in.GoString())
+	return in.GoString()
 }
